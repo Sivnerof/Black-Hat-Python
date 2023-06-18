@@ -62,6 +62,62 @@ class NetCat:
             self.socket.close()
             sys.exit()
 
+    def listen(self):
+        print('listening')
+        self.socket.bind((self.args.target, self.args.port))
+        # Max amount of connections in queue is 5
+        self.socket.listen(5)
+        while True:
+            # accept() blocks loop until client connects
+            # Returns client socket object, _ symbol signifies that address will be ignored.
+            client_socket, _ = self.socket.accept()
+            # Thread created that points to the self.handle method, where the client_socket will be passed in as an argument.
+            client_thread = threading.Thread(target=self.handle, args=(client_socket,))
+            client_thread.start()
+
+    def handle(self, client_socket):
+        if self.args.execute:
+            output = execute(self.args.execute)
+            client_socket.send(output.encode())
+
+        elif self.args.upload:
+            file_buffer = b''
+            while True:
+                # Data is taken in 4096 byte chunks and appended to byte string
+                data = client_socket.recv(4096)
+                if data:
+                    file_buffer += data
+                    print(len(file_buffer))
+                # No more data
+                else:
+                    break
+            # Write file locally
+            with open(self.args.upload, 'wb') as f:
+                f.write(file_buffer)
+            message = f'Saved file {self.args.upload}'
+            client_socket.send(message.encode())
+
+        elif self.args.command:
+            cmd_buffer = b''
+            while True:
+                try:
+                    # Command prompt
+                    client_socket.send(b' #> ')
+                    # Recieve command data until new line charactter is found
+                    while '\n' not in cmd_buffer.decode():
+                        cmd_buffer += client_socket.recv(64)
+                    # Execute command and get back response
+                    response = execute(cmd_buffer.decode())
+                    # Send Response
+                    if response:
+                        client_socket.send(response.encode())
+                    # New command byte string
+                    cmd_buffer = b''
+
+                except Exception as e:
+                    print(f'server killed {e}')
+                    self.socket.close()
+                    sys.exit()
 
 if __name__ == "__main__":
     # Creates instance of the ArgumentParser object
@@ -96,3 +152,4 @@ if __name__ == "__main__":
 
     nc = NetCat(args, buffer.encode('utf-8'))
     nc.run()
+
