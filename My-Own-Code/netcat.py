@@ -15,7 +15,7 @@ def execute(cmd):
     # The command is parsed and split by the shell lexer and passed as an argument to the check_output function
     # The subprocess error stream is redirected to the output stream
     # Result is the bytes returned by the executed command
-    output = subprocess.check_output(shlex.split(cmd), stderror=subprocess.STDOUT)
+    output = subprocess.check_output(shlex.split(cmd), stderr=subprocess.STDOUT)
     # Bytes are decoded
     return output.decode()
 
